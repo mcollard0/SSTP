@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Stuart Saves the Pomodoro
+GenericName=Pomodoro Timer
+Comment=Retro-futuristic laboratory Pomodoro desktop timer
+Exec=/run/media/michael/FAST_ARCHIVE/Programming/SSTP/run.sh
+Icon=/run/media/michael/FAST_ARCHIVE/Programming/SSTP/assets/icon.png
+Terminal=false
+Type=Application
+Categories=Utility;Clock;AudioVideo;
+StartupNotify=true
