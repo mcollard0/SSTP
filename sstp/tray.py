@@ -131,4 +131,7 @@ class SystemTrayManager:
         menu.append(item_quit)
 
         menu.show_all()
-        menu.popup(None, None, Gtk.StatusIcon.position_menu, status_icon, button, activate_time)
+        if status_icon:
+            menu.popup(None, None, Gtk.StatusIcon.position_menu, status_icon, button, activate_time)
+        else:
+            menu.popup(None, None, None, None, button, activate_time)

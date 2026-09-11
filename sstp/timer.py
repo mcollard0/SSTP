@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from typing import Callable, Optional
 from sstp.config import config
@@ -26,6 +27,7 @@ class PomodoroTimer:
 
         self.total_seconds = self._get_duration_for(self.session_type)
         self.remaining_seconds = self.total_seconds
+        self.target_end_time: Optional[float] = None
 
         # Callbacks
         self.on_tick: Optional[Callable[[int, int], None]] = None
@@ -73,18 +75,23 @@ class PomodoroTimer:
         if self.state == TimerState.IDLE or self.state == TimerState.COMPLETED:
             self.total_seconds = self._get_duration_for(self.session_type)
             self.remaining_seconds = self.total_seconds
+        self.target_end_time = time.monotonic() + self.remaining_seconds
         self.state = TimerState.RUNNING
         if self.on_state_changed:
             self.on_state_changed(self.state)
 
     def pause(self):
         if self.state == TimerState.RUNNING:
+            if self.target_end_time is not None:
+                self.remaining_seconds = max(0, int(round(self.target_end_time - time.monotonic())))
+                self.target_end_time = None
             self.state = TimerState.PAUSED
             if self.on_state_changed:
                 self.on_state_changed(self.state)
 
     def resume(self):
         if self.state == TimerState.PAUSED:
+            self.target_end_time = time.monotonic() + self.remaining_seconds
             self.state = TimerState.RUNNING
             if self.on_state_changed:
                 self.on_state_changed(self.state)
@@ -92,6 +99,7 @@ class PomodoroTimer:
     def restart(self):
         self.total_seconds = self._get_duration_for(self.session_type)
         self.remaining_seconds = self.total_seconds
+        self.target_end_time = time.monotonic() + self.remaining_seconds
         self.state = TimerState.RUNNING
         if self.on_state_changed:
             self.on_state_changed(self.state)
@@ -100,6 +108,7 @@ class PomodoroTimer:
 
     def reset(self):
         self.state = TimerState.IDLE
+        self.target_end_time = None
         self.total_seconds = self._get_duration_for(self.session_type)
         self.remaining_seconds = self.total_seconds
         if self.on_state_changed:
@@ -114,7 +123,7 @@ class PomodoroTimer:
 
         if self.session_type == SessionType.WORK:
             self.pomodoro_count += 1;
-            interval = config.settings.get( "long_break_interval", 4 );
+            interval = max( 1, int( config.settings.get( "long_break_interval", 4 ) ) );
             is_long_turn = ( self.pomodoro_count % interval == 0 );
 
             if is_long_turn and long_enabled:
@@ -127,6 +136,7 @@ class PomodoroTimer:
             self.session_type = SessionType.WORK;
 
         self.state = TimerState.IDLE;
+        self.target_end_time = None;
         self.total_seconds = self._get_duration_for( self.session_type );
         self.remaining_seconds = self.total_seconds;
 
@@ -144,7 +154,14 @@ class PomodoroTimer:
         if self.state != TimerState.RUNNING:
             return False
 
-        if self.remaining_seconds > 0:
+        if self.target_end_time is not None:
+            now = time.monotonic()
+            expected_remaining = int(round(self.target_end_time - now))
+            if expected_remaining < self.remaining_seconds:
+                self.remaining_seconds = max(0, expected_remaining)
+            else:
+                self.remaining_seconds = max(0, self.remaining_seconds - 1)
+        elif self.remaining_seconds > 0:
             self.remaining_seconds -= 1
 
         if self.on_tick:
@@ -152,7 +169,8 @@ class PomodoroTimer:
 
         if self.remaining_seconds <= 0:
             self.state = TimerState.COMPLETED
-            duration_mins = self.total_seconds // 60
+            self.target_end_time = None
+            duration_mins = max(1, self.total_seconds // 60)
             config.record_completed_session(self.session_type.value, duration_mins)
             if self.on_state_changed:
                 self.on_state_changed(self.state)
@@ -165,14 +183,15 @@ class PomodoroTimer:
     @property
     def formatted_digits(self) -> str:
         """Returns 4-character string of MMSS (e.g. '2500' or '0459')."""
-        mins = self.remaining_seconds // 60
-        secs = self.remaining_seconds % 60
-        mins = min(99, max(0, mins))
+        valid_rem = max(0, self.remaining_seconds)
+        mins = min(99, valid_rem // 60)
+        secs = min(59, valid_rem % 60)
         return f"{mins:02d}{secs:02d}"
 
     @property
     def formatted_display(self) -> str:
         """Returns string for tooltips/menus e.g. '25:00'."""
-        mins = self.remaining_seconds // 60
-        secs = self.remaining_seconds % 60
+        valid_rem = max(0, self.remaining_seconds)
+        mins = valid_rem // 60
+        secs = valid_rem % 60
         return f"{mins:02d}:{secs:02d}"

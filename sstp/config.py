@@ -3,11 +3,30 @@ import os
 from datetime import datetime, date
 from pathlib import Path
 
+import sys
+
 DEFAULT_SOUND_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "tick.wav")
 DEFAULT_ALARM_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "alarm.wav")
 DEFAULT_CLICK_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "click.wav")
 
-CONFIG_DIR = Path.home() / ".config" / "sstp"
+
+def get_config_dir() -> Path:
+    """Returns platform-standard configuration directory."""
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "sstp"
+        return Path.home() / "AppData" / "Roaming" / "sstp"
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "sstp"
+    else:
+        xdg = os.environ.get("XDG_CONFIG_HOME")
+        if xdg:
+            return Path(xdg) / "sstp"
+        return Path.home() / ".config" / "sstp"
+
+
+CONFIG_DIR = get_config_dir()
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -69,45 +88,60 @@ class ConfigManager:
         except Exception as e:
             print(f"[Config] Error saving config: {e}")
 
+    def get_sound_file(self) -> str:
+        sound = self.settings.get("sound_file", DEFAULT_SOUND_PATH)
+        if not sound or not os.path.exists(sound):
+            return DEFAULT_SOUND_PATH
+        return sound
+
     def _update_daily_stats(self):
         today_str = date.today().isoformat()
         last_date = self.stats.get("last_active_date", "")
 
+        changed = False
         if last_date != today_str:
             if last_date:
                 try:
                     last_d = date.fromisoformat(last_date)
                     delta = (date.today() - last_d).days
                     if delta > 1:
-                        self.stats["daily_streak"] = 0
+                        if self.stats.get("daily_streak", 0) != 0:
+                            self.stats["daily_streak"] = 0
+                            changed = True
                 except Exception:
                     pass
-            self.stats["today_completed"] = 0
+            if self.stats.get("today_completed", 0) != 0:
+                self.stats["today_completed"] = 0
+                changed = True
+
+        if changed:
+            self.save()
 
     def record_completed_session(self, session_type: str, duration_minutes: int):
         today_str = date.today().isoformat()
         last_date = self.stats.get("last_active_date", "")
 
-        if last_date != today_str:
-            if last_date:
-                try:
-                    last_d = date.fromisoformat(last_date)
-                    delta = (date.today() - last_d).days
-                    if delta == 1:
-                        self.stats["daily_streak"] += 1
-                    elif delta > 1:
-                        self.stats["daily_streak"] = 1
-                except Exception:
-                    self.stats["daily_streak"] = 1
-            else:
-                self.stats["daily_streak"] = 1
-            self.stats["last_active_date"] = today_str
-            self.stats["today_completed"] = 0
-
         if session_type == "work":
             self.stats["total_pomodoros_completed"] += 1
             self.stats["total_focus_minutes"] += duration_minutes
-            self.stats["today_completed"] += 1
+
+            if last_date != today_str:
+                self.stats["today_completed"] = 1
+                if last_date:
+                    try:
+                        last_d = date.fromisoformat(last_date)
+                        delta = (date.today() - last_d).days
+                        if delta == 1:
+                            self.stats["daily_streak"] += 1
+                        else:
+                            self.stats["daily_streak"] = 1
+                    except Exception:
+                        self.stats["daily_streak"] = 1
+                else:
+                    self.stats["daily_streak"] = 1
+                self.stats["last_active_date"] = today_str
+            else:
+                self.stats["today_completed"] += 1
         elif session_type == "short_break":
             self.stats["total_short_breaks_completed"] += 1
         elif session_type == "long_break":
@@ -131,7 +165,7 @@ class ConfigManager:
             "total_long_breaks_completed": 0,
             "total_focus_minutes": 0,
             "daily_streak": 0,
-            "last_active_date": date.today().isoformat(),
+            "last_active_date": "",
             "today_completed": 0,
             "history": [],
         }

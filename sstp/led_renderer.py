@@ -202,3 +202,120 @@ def render_tube_glow(cr: cairo.Context, pulse_phase: float):
         cr.arc(fx, fy, 15.0, 0, 2 * math.pi)
         cr.fill()
         cr.restore()
+
+
+# --- Cross-Platform Qt Renderer (macOS, Windows, Linux) ---
+
+try:
+    from PyQt6.QtGui import QPainter, QColor, QPolygonF, QRadialGradient, QPen, QBrush
+    from PyQt6.QtCore import QPointF, Qt
+    QT_AVAILABLE = True
+except ImportError:
+    try:
+        from PySide6.QtGui import QPainter, QColor, QPolygonF, QRadialGradient, QPen, QBrush
+        from PySide6.QtCore import QPointF, Qt
+        QT_AVAILABLE = True
+    except ImportError:
+        QT_AVAILABLE = False
+
+
+def render_tube_glow_qt(painter, pulse_phase: float):
+    """Renders soft vacuum tube glow via QPainter for cross-platform support."""
+    if not QT_AVAILABLE:
+        return
+    pulse = 0.5 + 0.5 * math.sin(pulse_phase * 2.5)
+
+    tube_centers = [(648.0, 193.0), (688.0, 186.0), (717.0, 209.0)]
+    for tx, ty in tube_centers:
+        grad = QRadialGradient(tx, ty, 35.0, tx, ty)
+        grad.setColorAt(0.0, QColor(191, 64, 255, int(255 * (0.22 + 0.12 * pulse))))
+        grad.setColorAt(0.5, QColor(140, 38, 230, int(255 * (0.10 + 0.06 * pulse))))
+        grad.setColorAt(1.0, QColor(102, 13, 178, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(grad))
+        painter.drawEllipse(QPointF(tx, ty), 35.0, 35.0)
+
+    filament_centers = [(648.0, 216.0), (688.0, 209.0)]
+    for fx, fy in filament_centers:
+        grad = QRadialGradient(fx, fy, 15.0, fx, fy)
+        grad.setColorAt(0.0, QColor(255, 179, 51, int(255 * (0.35 + 0.15 * pulse))))
+        grad.setColorAt(1.0, QColor(255, 255, 102, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(grad))
+        painter.drawEllipse(QPointF(fx, fy), 15.0, 15.0)
+
+
+def render_led_overlay_qt(
+    painter,
+    text: str,
+    show_colon: bool = True,
+    intensity: float = 1.0,
+    active: bool = True,
+):
+    """Renders pixel-perfect glowing red 7-segment digits via QPainter."""
+    if not QT_AVAILABLE or not active:
+        return
+
+    text = text.rjust(4, " ")[:4]
+    glow_intensity = max(0.0, min(1.0, intensity))
+
+    for i, char in enumerate(text):
+        cx = DIGIT_CENTERS[i]
+        segs = get_digit_segments(cx, DIGIT_CY)
+        lit_names = DIGIT_MAP.get(char, [])
+
+        for s_name in lit_names:
+            pts = segs[s_name]
+            poly = QPolygonF([QPointF(x, y) for x, y in pts])
+
+            # Pass 1: Wide diffuse red bloom
+            p1 = QPen(
+                QColor(255, 13, 13, int(255 * 0.18 * glow_intensity)),
+                5.0,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            )
+            painter.setPen(p1)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPolygon(poly)
+
+            # Pass 2: Mid red glow
+            p2 = QPen(
+                QColor(255, 31, 31, int(255 * 0.45 * glow_intensity)),
+                2.6,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            )
+            painter.setPen(p2)
+            painter.drawPolygon(poly)
+
+            # Pass 3: Saturated vivid red segment fill
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 46, 46, int(255 * 0.95 * glow_intensity)))
+            painter.drawPolygon(poly)
+
+            # Pass 4: Hot white/pink inner core highlight
+            p4 = QPen(
+                QColor(255, 224, 214, int(255 * 0.78 * glow_intensity)),
+                0.8,
+            )
+            painter.setPen(p4)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPolygon(poly)
+
+    if show_colon:
+        colon_x = 387.0
+        for dy in [594.0, 606.0]:
+            skew = (DIGIT_CY - dy) * 0.14
+            dot_x = colon_x + skew
+
+            # Diffuse glow
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 20, 20, int(255 * 0.4 * glow_intensity)))
+            painter.drawEllipse(QPointF(dot_x, dy), 2.4, 2.4)
+
+            # Core dot
+            painter.setBrush(QColor(255, 224, 214, int(255 * 0.9 * glow_intensity)))
+            painter.drawEllipse(QPointF(dot_x, dy), 1.1, 1.1)

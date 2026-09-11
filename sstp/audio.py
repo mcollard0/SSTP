@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import subprocess
 import threading
@@ -7,15 +8,26 @@ from sstp.config import config, DEFAULT_SOUND_PATH, DEFAULT_ALARM_PATH, DEFAULT_
 
 
 class AudioPlayer:
-    """Non-blocking audio engine supporting PulseAudio, PipeWire, and ALSA."""
+    """Cross-platform non-blocking audio engine supporting macOS, Windows, and Linux."""
 
     def __init__(self):
+        # Linux binaries
         self.paplay_bin = shutil.which("paplay")
         self.pw_play_bin = shutil.which("pw-play")
         self.aplay_bin = shutil.which("aplay")
+        # macOS binary
+        self.afplay_bin = shutil.which("afplay")
+        # Windows winsound
+        self.winsound = None
+        if sys.platform == "win32":
+            try:
+                import winsound
+                self.winsound = winsound
+            except ImportError:
+                pass
 
     def _play_async(self, filepath: str, volume: float = 1.0):
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             print(f"[Audio] Sound file not found: {filepath}")
             return
 
@@ -25,17 +37,32 @@ class AudioPlayer:
                 return
 
             try:
-                if self.paplay_bin:
-                    # paplay volume is 0..65536
+                # 1. macOS afplay
+                if sys.platform == "darwin" and self.afplay_bin:
+                    cmd = [self.afplay_bin, "-v", f"{vol_clamped:.2f}", filepath]
+                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # 2. Windows winsound
+                elif sys.platform == "win32" and self.winsound:
+                    self.winsound.PlaySound(
+                        filepath,
+                        self.winsound.SND_FILENAME | self.winsound.SND_NODEFAULT,
+                    )
+                # 3. Linux PulseAudio
+                elif self.paplay_bin:
                     pa_vol = int(vol_clamped * 65536)
                     cmd = [self.paplay_bin, f"--volume={pa_vol}", filepath]
                     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # 4. Linux PipeWire
                 elif self.pw_play_bin:
                     cmd = [self.pw_play_bin, f"--volume={vol_clamped:.2f}", filepath]
                     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # 5. Linux ALSA
                 elif self.aplay_bin:
                     cmd = [self.aplay_bin, "-q", filepath]
                     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # Fallback afplay if on mac without path check
+                elif self.afplay_bin:
+                    subprocess.run([self.afplay_bin, filepath], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 print(f"[Audio] Playback error: {e}")
 
@@ -48,7 +75,7 @@ class AudioPlayer:
         if not config.settings.get("tick_sound_enabled", True):
             return
 
-        sound_file = config.settings.get("sound_file", DEFAULT_SOUND_PATH)
+        sound_file = config.get_sound_file()
         volume = config.settings.get("volume", 0.8)
         self._play_async(sound_file, volume)
 
@@ -62,7 +89,8 @@ class AudioPlayer:
         self._play_async(DEFAULT_ALARM_PATH, volume)
 
     def play_click(self):
-        # Click sound is subtle tactile feedback for switch interaction
+        if not config.settings.get("sound_enabled", True):
+            return
         volume = min(1.0, config.settings.get("volume", 0.8) * 0.9)
         self._play_async(DEFAULT_CLICK_PATH, volume)
 

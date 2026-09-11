@@ -10,6 +10,8 @@ from sstp.audio import audio
 class SettingsDialog(Gtk.Dialog):
     """Settings and Statistics dialog configured according to ARCHITECTURE.md."""
 
+    _css_provider_installed = False
+
     def __init__(self, parent_window, on_settings_changed=None):
         super().__init__(
             title="SSTP — Machine Configuration & Logs",
@@ -28,20 +30,22 @@ class SettingsDialog(Gtk.Dialog):
             self.set_visual( visual );
         Gtk.Widget.set_opacity( self, 0.75 );
 
-        css_provider = Gtk.CssProvider();
-        css_provider.load_from_data( b"""
-            dialog.settings-dialog, window.settings-dialog, .settings-dialog,
-            .settings-dialog .background, .settings-dialog decoration, .settings-dialog headerbar {
-                background-color: #2b2b2e;
-                background-image: none;
-                color: #e6e6e6;
-            }
-        """ );
-        Gtk.StyleContext.add_provider_for_screen(
-            screen,
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 10,
-        );
+        if not SettingsDialog._css_provider_installed:
+            css_provider = Gtk.CssProvider();
+            css_provider.load_from_data( b"""
+                dialog.settings-dialog, window.settings-dialog, .settings-dialog,
+                .settings-dialog .background, .settings-dialog decoration, .settings-dialog headerbar {
+                    background-color: #2b2b2e;
+                    background-image: none;
+                    color: #e6e6e6;
+                }
+            """ );
+            Gtk.StyleContext.add_provider_for_screen(
+                screen,
+                css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 10,
+            );
+            SettingsDialog._css_provider_installed = True
 
         self.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
 
@@ -80,7 +84,7 @@ class SettingsDialog(Gtk.Dialog):
 
         # 1. Working time in minutes
         lbl_work = Gtk.Label(label="Working Time (minutes):", xalign=0)
-        self.spin_work = Gtk.SpinButton.new_with_range(1, 120, 1)
+        self.spin_work = Gtk.SpinButton.new_with_range(1, 99, 1)
         self.spin_work.set_value(config.settings.get("work_minutes", 25))
         self.spin_work.connect("value-changed", self._on_value_changed)
         grid.attach(lbl_work, 0, 0, 1, 1)

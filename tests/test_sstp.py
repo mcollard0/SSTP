@@ -15,6 +15,7 @@ class TestTimer(unittest.TestCase):
         config.settings["work_minutes"] = 25
         config.settings["short_break_minutes"] = 5
         config.settings["long_break_minutes"] = 15
+        config.settings["long_break_interval"] = 4
         config.settings["short_break_enabled"] = True
         config.settings["long_break_enabled"] = True
         self.timer = PomodoroTimer()
@@ -84,6 +85,40 @@ class TestConfigAndStats(unittest.TestCase):
         self.assertEqual(self.cm.stats["total_focus_minutes"], 0)
         self.assertEqual(self.cm.stats["today_completed"], 0)
         self.assertEqual(len(self.cm.stats["history"]), 0)
+
+        # Verify streak increments after reset
+        self.cm.record_completed_session("work", 25)
+        self.assertEqual(self.cm.stats["daily_streak"], 1)
+        self.assertEqual(self.cm.stats["today_completed"], 1)
+
+    def test_breaks_do_not_increment_streak(self):
+        self.cm.stats["last_active_date"] = "2026-09-10"
+        self.cm.stats["daily_streak"] = 1
+        self.cm.record_completed_session("short_break", 5)
+        self.assertEqual(self.cm.stats["total_short_breaks_completed"], 1)
+        self.assertEqual(self.cm.stats["daily_streak"], 1)
+        self.assertEqual(self.cm.stats["today_completed"], 0)
+
+    def test_interval_zero_does_not_crash(self):
+        old_val = config.settings.get("long_break_interval", 4)
+        try:
+            config.settings["long_break_interval"] = 0
+            timer = PomodoroTimer()
+            timer.advance_to_next_session()
+            self.assertIn(timer.session_type, (SessionType.WORK, SessionType.SHORT_BREAK, SessionType.LONG_BREAK))
+        finally:
+            config.settings["long_break_interval"] = old_val
+
+    def test_play_click_respects_sound_enabled(self):
+        from sstp.audio import AudioPlayer
+        ap = AudioPlayer()
+        with patch.object(ap, "_play_async") as mock_play:
+            config.settings["sound_enabled"] = False
+            ap.play_click()
+            mock_play.assert_not_called()
+            config.settings["sound_enabled"] = True
+            ap.play_click()
+            mock_play.assert_called_once()
 
 
 class TestLEDRenderer(unittest.TestCase):
@@ -170,6 +205,35 @@ class TestBreakTogglesAndOpacity( unittest.TestCase ):
         self.assertEqual( dialog.chk_long.get_active(), config.settings[ "long_break_enabled" ] );
         dialog.destroy();
         parent.destroy();
+
+
+class TestQtComponents(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from PyQt6.QtWidgets import QApplication
+            cls.app = QApplication.instance() or QApplication([])
+        except ImportError:
+            cls.app = None
+
+    def test_qt_app_and_dialog_init(self):
+        if self.app is None:
+            self.skipTest("PyQt6 not available")
+        from sstp.qt_app import PomodoroMachineQtApp
+        from sstp.qt_settings_dialog import SettingsDialogQt
+
+        app_win = PomodoroMachineQtApp()
+        self.assertIsNotNone(app_win)
+        self.assertEqual(app_win.timer.session_type, SessionType.WORK)
+        self.assertGreater(app_win.width(), 0)
+        self.assertGreater(app_win.height(), 0)
+
+        diag = SettingsDialogQt(app_win)
+        self.assertTrue(hasattr(diag, "chk_short"))
+        self.assertTrue(hasattr(diag, "chk_long"))
+        self.assertEqual(diag.chk_short.isChecked(), config.settings["short_break_enabled"])
+        diag.close()
+        app_win.close()
 
 
 if __name__ == "__main__":

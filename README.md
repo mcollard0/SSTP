@@ -54,34 +54,53 @@ A retro-futuristic Pomodoro timer desktop application for Linux, built around th
 
 ### Requirements
 
-On Arch Linux / Fedora / Ubuntu / Debian:
-- Python 3.9+
-- `python3-gobject` (`gi`) & GTK+ 3
-- `python3-cairo` (`pycairo`)
-- `python3-pillow` (`Pillow`)
-- `pulseaudio` or `pipewire-pulse` (for low-latency audio via `paplay` or `pw-play`)
+SSTP supports **Linux**, **Apple macOS**, and **Microsoft Windows** using standard Python 3.9+.
 
-Install dependencies if needed:
+Install dependencies via pip:
+```bash
+pip install -r requirements.txt
+```
+
+#### Linux (Native Packages alternative):
 ```bash
 # Arch Linux:
-sudo pacman -S python-gobject gtk3 cairo python-pillow
+sudo pacman -S python-pyqt6 cairo
 
 # Ubuntu / Debian:
-sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 python3-pil pulseaudio-utils
+sudo apt install python3-pyqt6 python3-cairo
 
 # Fedora:
-sudo dnf install python3-gobject gtk3 python3-cairo python3-pillow pulseaudio-utils
+sudo dnf install python3-pyqt6 python3-cairo
+```
+
+#### Apple macOS:
+```bash
+pip install -r requirements.txt
+```
+
+#### Windows:
+```bash
+pip install -r requirements.txt
 ```
 
 ### Running Locally
 
-```bash
-./run.sh
-```
-or
-```bash
-python3 -m sstp.app
-```
+- **Linux**:
+  ```bash
+  ./run.sh
+  ```
+- **macOS**:
+  ```bash
+  ./run_mac.command
+  ```
+- **Windows**:
+  ```cmd
+  run.bat
+  ```
+- **Universal CLI**:
+  ```bash
+  python3 -m sstp.app
+  ```
 
 ### Install Application Launcher (Desktop Menu)
 

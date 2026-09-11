@@ -390,13 +390,21 @@ class PomodoroMachineApp(Gtk.Window):
 
 
 def main():
-    GLib.set_prgname( "sstp" );
-    GLib.set_application_name( "Stuart Saves the Pomodoro" );
-    if os.path.exists( ICON_PATH ):
-        Gtk.Window.set_default_icon_from_file( ICON_PATH );
-    app = PomodoroMachineApp();
-    app.show_all();
-    Gtk.main();
+    use_gtk = "--gtk" in sys.argv
+    if not use_gtk:
+        try:
+            from sstp.qt_app import main as qt_main
+            return qt_main()
+        except ImportError as e:
+            print(f"[SSTP] Qt not available ({e}), falling back to GTK3 backend.")
+
+    GLib.set_prgname("sstp")
+    GLib.set_application_name("Stuart Saves the Pomodoro")
+    if os.path.exists(ICON_PATH):
+        Gtk.Window.set_default_icon_from_file(ICON_PATH)
+    app = PomodoroMachineApp()
+    app.show_all()
+    Gtk.main()
 
 
 if __name__ == "__main__":
