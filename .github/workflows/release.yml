@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to attach packages to'
+        required: false
+        default: 'v0.0.1'
 
 permissions:
   contents: write
@@ -37,8 +42,10 @@ jobs:
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libcairo2 libcairo2-dev libpulse0 libasound2 pkg-config
+          sudo apt-get update -y || true
+          sudo apt-get install -y --no-install-recommends libcairo2 libpulse0 pkg-config || true
+          # Install ALSA libs supporting both Ubuntu 22.04 and 24.04+ (libasound2t64)
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2 || true
 
       - name: Install Python dependencies
         run: |
@@ -61,8 +68,9 @@ jobs:
 
       - name: Publish Assets to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.tag_name || 'v0.0.1' }}
           files: |
             dist/*.tar.gz
             dist/*.zip

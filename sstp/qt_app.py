@@ -391,11 +391,20 @@ class PomodoroMachineQtApp(QWidget):
             active=True,
         )
 
+    def closeEvent(self, event):
+        if self.tray.isVisible():
+            self.hide()
+            self.action_visibility.setText("Show Window")
+            event.ignore()
+        else:
+            event.accept()
+
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Stuart Saves the Pomodoro")
     app.setOrganizationName("SSTP")
+    app.setQuitOnLastWindowClosed(False)
 
     if os.path.exists(ICON_PATH):
         app.setWindowIcon(QIcon(ICON_PATH))
