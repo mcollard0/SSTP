@@ -5,9 +5,11 @@ from pathlib import Path
 
 import sys
 
-DEFAULT_SOUND_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "tick.wav")
-DEFAULT_ALARM_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "alarm.wav")
-DEFAULT_CLICK_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "sounds" / "click.wav")
+from sstp.const import (
+    DEFAULT_SOUND_PATH,
+    DEFAULT_ALARM_PATH,
+    DEFAULT_CLICK_PATH,
+)
 
 
 def get_config_dir() -> Path:

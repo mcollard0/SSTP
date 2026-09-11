@@ -12,10 +12,7 @@ except Exception:
 
 from gi.repository import Gtk, GdkPixbuf
 from sstp.timer import TimerState, SessionType
-
-ICON_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "assets", "icon.png")
-)
+from sstp.const import ICON_PATH
 
 
 class SystemTrayManager:

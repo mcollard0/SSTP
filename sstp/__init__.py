@@ -1,5 +1,7 @@
 """Stuart Saves the Pomodoro (SSTP) Desktop App.
-A retro-futuristic Pomodoro timer desktop application for Linux.
+A retro-futuristic Pomodoro timer desktop application.
 """
 
-__version__ = "1.0.0"
+from sstp.const import VERSION, __version__
+
+__all__ = ["VERSION", "__version__"]

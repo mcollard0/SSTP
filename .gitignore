@@ -7,3 +7,6 @@ venv/
 *.swp
 *~
 backup/
+build/
+dist/
+*.spec

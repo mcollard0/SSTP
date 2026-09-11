@@ -235,6 +235,19 @@ class TestQtComponents(unittest.TestCase):
         diag.close()
         app_win.close()
 
+class TestVersionAndConstants(unittest.TestCase):
+    def test_version_constants(self):
+        import sstp
+        from sstp.const import VERSION, __version__, BASE_DIR, MACHINE_IMG_PATH, ICON_PATH
+
+        self.assertEqual(VERSION, "0.0.1")
+        self.assertEqual(__version__, "0.0.1")
+        self.assertEqual(sstp.VERSION, "0.0.1")
+        self.assertEqual(sstp.__version__, "0.0.1")
+        self.assertTrue(os.path.exists(MACHINE_IMG_PATH))
+        self.assertTrue(os.path.exists(ICON_PATH))
+
 
 if __name__ == "__main__":
     unittest.main()
+

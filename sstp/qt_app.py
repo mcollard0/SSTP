@@ -48,8 +48,7 @@ from sstp.audio import audio
 from sstp.led_renderer import render_led_overlay_qt, render_tube_glow_qt
 from sstp.qt_settings_dialog import SettingsDialogQt
 
-MACHINE_IMG_PATH = str(Path(__file__).resolve().parent.parent / "outputs" / "machine.png")
-ICON_PATH = str(Path(__file__).resolve().parent.parent / "assets" / "icon.png")
+from sstp.const import MACHINE_IMG_PATH, ICON_PATH, VERSION
 
 
 class PomodoroMachineQtApp(QWidget):

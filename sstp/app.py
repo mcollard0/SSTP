@@ -16,12 +16,7 @@ from sstp.tray import SystemTrayManager
 from sstp.settings_dialog import SettingsDialog
 from sstp.led_renderer import render_led_overlay, render_tube_glow
 
-MACHINE_IMG_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "outputs", "machine.png")
-)
-ICON_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "assets", "icon.png")
-)
+from sstp.const import MACHINE_IMG_PATH, ICON_PATH, VERSION
 
 
 class PomodoroMachineApp(Gtk.Window):
