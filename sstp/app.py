@@ -38,12 +38,12 @@ class PomodoroMachineApp(Gtk.Window):
             self.set_icon_from_file(ICON_PATH)
 
         # Windowless configuration: no titlebar, no borders, no CSD decoration
-        self.set_decorated(False)
-        empty_header = Gtk.Fixed()
-        empty_header.set_size_request(0, 0)
-        self.set_titlebar(empty_header)
-        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
-        self.set_skip_taskbar_hint(False)
+        self.set_decorated( False );
+        empty_header = Gtk.Fixed();
+        empty_header.set_size_request( 0, 0 );
+        self.set_titlebar( empty_header );
+        self.set_type_hint( Gdk.WindowTypeHint.NORMAL );
+        self.set_skip_taskbar_hint( False );
 
         # Configure RGBA visual for desktop transparency
         screen = self.get_screen()
@@ -235,15 +235,20 @@ class PomodoroMachineApp(Gtk.Window):
                 self.draw_area.queue_draw()
                 self.open_settings()
                 return True
-            elif self._is_in_cartridge(x, y):
-                # Mode switcher: Work <-> Short Break
-                audio.play_click()
+            elif self._is_in_cartridge( x, y ):
+                # Mode switcher: Work <-> Break
+                audio.play_click();
+                short_enabled = config.settings.get( "short_break_enabled", True );
+                long_enabled = config.settings.get( "long_break_enabled", True );
                 if self.timer.session_type == SessionType.WORK:
-                    self.timer.set_session_type(SessionType.SHORT_BREAK)
+                    if short_enabled:
+                        self.timer.set_session_type( SessionType.SHORT_BREAK );
+                    elif long_enabled:
+                        self.timer.set_session_type( SessionType.LONG_BREAK );
                 else:
-                    self.timer.set_session_type(SessionType.WORK)
-                self.draw_area.queue_draw()
-                return True
+                    self.timer.set_session_type( SessionType.WORK );
+                self.draw_area.queue_draw();
+                return True;
             else:
                 # Drag window
                 self.begin_move_drag(
@@ -385,9 +390,13 @@ class PomodoroMachineApp(Gtk.Window):
 
 
 def main():
-    app = PomodoroMachineApp()
-    app.show_all()
-    Gtk.main()
+    GLib.set_prgname( "sstp" );
+    GLib.set_application_name( "Stuart Saves the Pomodoro" );
+    if os.path.exists( ICON_PATH ):
+        Gtk.Window.set_default_icon_from_file( ICON_PATH );
+    app = PomodoroMachineApp();
+    app.show_all();
+    Gtk.main();
 
 
 if __name__ == "__main__":

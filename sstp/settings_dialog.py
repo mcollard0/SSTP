@@ -20,6 +20,29 @@ class SettingsDialog(Gtk.Dialog):
         self.set_default_size(520, 480)
         self.on_settings_changed = on_settings_changed
 
+        # Configure opacity: 25% transparent (75% opaque) for settings form
+        self.get_style_context().add_class( "settings-dialog" );
+        screen = self.get_screen();
+        visual = screen.get_rgba_visual();
+        if visual and screen.is_composited():
+            self.set_visual( visual );
+        Gtk.Widget.set_opacity( self, 0.75 );
+
+        css_provider = Gtk.CssProvider();
+        css_provider.load_from_data( b"""
+            dialog.settings-dialog, window.settings-dialog, .settings-dialog,
+            .settings-dialog .background, .settings-dialog decoration, .settings-dialog headerbar {
+                background-color: #2b2b2e;
+                background-image: none;
+                color: #e6e6e6;
+            }
+        """ );
+        Gtk.StyleContext.add_provider_for_screen(
+            screen,
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 10,
+        );
+
         self.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
 
         box = self.get_content_area()
@@ -63,29 +86,46 @@ class SettingsDialog(Gtk.Dialog):
         grid.attach(lbl_work, 0, 0, 1, 1)
         grid.attach(self.spin_work, 1, 0, 1, 1)
 
-        # Short break time
-        lbl_short = Gtk.Label(label="Short Break (minutes):", xalign=0)
-        self.spin_short = Gtk.SpinButton.new_with_range(1, 60, 1)
-        self.spin_short.set_value(config.settings.get("short_break_minutes", 5))
-        self.spin_short.connect("value-changed", self._on_value_changed)
-        grid.attach(lbl_short, 0, 1, 1, 1)
-        grid.attach(self.spin_short, 1, 1, 1, 1)
+        # Short break time with checkbox before it
+        box_short = Gtk.Box( orientation=Gtk.Orientation.HORIZONTAL, spacing=6 );
+        self.chk_short = Gtk.CheckButton();
+        self.chk_short.set_active( config.settings.get( "short_break_enabled", True ) );
+        self.chk_short.connect( "toggled", self._on_break_toggled );
+        lbl_short = Gtk.Label( label="Short Break (minutes):", xalign=0 );
+        box_short.pack_start( self.chk_short, False, False, 0 );
+        box_short.pack_start( lbl_short, False, False, 0 );
 
-        # Long break time
-        lbl_long = Gtk.Label(label="Long Break (minutes):", xalign=0)
-        self.spin_long = Gtk.SpinButton.new_with_range(1, 60, 1)
-        self.spin_long.set_value(config.settings.get("long_break_minutes", 15))
-        self.spin_long.connect("value-changed", self._on_value_changed)
-        grid.attach(lbl_long, 0, 2, 1, 1)
-        grid.attach(self.spin_long, 1, 2, 1, 1)
+        self.spin_short = Gtk.SpinButton.new_with_range( 1, 60, 1 );
+        self.spin_short.set_value( config.settings.get( "short_break_minutes", 5 ) );
+        self.spin_short.set_sensitive( self.chk_short.get_active() );
+        self.spin_short.connect( "value-changed", self._on_value_changed );
+        grid.attach( box_short, 0, 1, 1, 1 );
+        grid.attach( self.spin_short, 1, 1, 1, 1 );
+
+        # Long break time with checkbox before it
+        box_long = Gtk.Box( orientation=Gtk.Orientation.HORIZONTAL, spacing=6 );
+        self.chk_long = Gtk.CheckButton();
+        self.chk_long.set_active( config.settings.get( "long_break_enabled", True ) );
+        self.chk_long.connect( "toggled", self._on_break_toggled );
+        lbl_long = Gtk.Label( label="Long Break (minutes):", xalign=0 );
+        box_long.pack_start( self.chk_long, False, False, 0 );
+        box_long.pack_start( lbl_long, False, False, 0 );
+
+        self.spin_long = Gtk.SpinButton.new_with_range( 1, 60, 1 );
+        self.spin_long.set_value( config.settings.get( "long_break_minutes", 15 ) );
+        self.spin_long.set_sensitive( self.chk_long.get_active() );
+        self.spin_long.connect( "value-changed", self._on_value_changed );
+        grid.attach( box_long, 0, 2, 1, 1 );
+        grid.attach( self.spin_long, 1, 2, 1, 1 );
 
         # Long break interval
-        lbl_interval = Gtk.Label(label="Long Break Interval (cycles):", xalign=0)
-        self.spin_interval = Gtk.SpinButton.new_with_range(1, 12, 1)
-        self.spin_interval.set_value(config.settings.get("long_break_interval", 4))
-        self.spin_interval.connect("value-changed", self._on_value_changed)
-        grid.attach(lbl_interval, 0, 3, 1, 1)
-        grid.attach(self.spin_interval, 1, 3, 1, 1)
+        lbl_interval = Gtk.Label( label="Long Break Interval (cycles):", xalign=0 );
+        self.spin_interval = Gtk.SpinButton.new_with_range( 1, 12, 1 );
+        self.spin_interval.set_value( config.settings.get( "long_break_interval", 4 ) );
+        self.spin_interval.set_sensitive( self.chk_long.get_active() );
+        self.spin_interval.connect( "value-changed", self._on_value_changed );
+        grid.attach( lbl_interval, 0, 3, 1, 1 );
+        grid.attach( self.spin_interval, 1, 3, 1, 1 );
 
         desc = Gtk.Label(
             label="Adjust durations for your focus sessions. Changes will take effect on the next session.",
@@ -241,14 +281,24 @@ class SettingsDialog(Gtk.Dialog):
 
         return box
 
-    def _on_value_changed(self, spin):
-        config.settings["work_minutes"] = int(self.spin_work.get_value())
-        config.settings["short_break_minutes"] = int(self.spin_short.get_value())
-        config.settings["long_break_minutes"] = int(self.spin_long.get_value())
-        config.settings["long_break_interval"] = int(self.spin_interval.get_value())
-        config.save()
+    def _on_break_toggled( self, button ):
+        config.settings[ "short_break_enabled" ] = self.chk_short.get_active();
+        config.settings[ "long_break_enabled" ] = self.chk_long.get_active();
+        self.spin_short.set_sensitive( self.chk_short.get_active() );
+        self.spin_long.set_sensitive( self.chk_long.get_active() );
+        self.spin_interval.set_sensitive( self.chk_long.get_active() );
+        config.save();
         if self.on_settings_changed:
-            self.on_settings_changed()
+            self.on_settings_changed();
+
+    def _on_value_changed( self, spin ):
+        config.settings[ "work_minutes" ] = int( self.spin_work.get_value() );
+        config.settings[ "short_break_minutes" ] = int( self.spin_short.get_value() );
+        config.settings[ "long_break_minutes" ] = int( self.spin_long.get_value() );
+        config.settings[ "long_break_interval" ] = int( self.spin_interval.get_value() );
+        config.save();
+        if self.on_settings_changed:
+            self.on_settings_changed();
 
     def _on_sound_toggled(self, switch, gparam):
         config.settings["sound_enabled"] = switch.get_active()

@@ -42,13 +42,21 @@ class PomodoroTimer:
             return max(1, int(settings.get("long_break_minutes", 15))) * 60
         return 25 * 60
 
-    def refresh_durations(self):
+    def refresh_durations( self ):
         """Called when settings are updated to apply new times if idle."""
+        short_enabled = config.settings.get( "short_break_enabled", True );
+        long_enabled = config.settings.get( "long_break_enabled", True );
+
         if self.state == TimerState.IDLE:
-            self.total_seconds = self._get_duration_for(self.session_type)
-            self.remaining_seconds = self.total_seconds
+            if self.session_type == SessionType.SHORT_BREAK and not short_enabled:
+                self.session_type = SessionType.WORK;
+            elif self.session_type == SessionType.LONG_BREAK and not long_enabled:
+                self.session_type = SessionType.WORK;
+
+            self.total_seconds = self._get_duration_for( self.session_type );
+            self.remaining_seconds = self.total_seconds;
             if self.on_tick:
-                self.on_tick(self.remaining_seconds, self.total_seconds)
+                self.on_tick( self.remaining_seconds, self.total_seconds );
 
     def toggle(self):
         """Action for red button: stops / starts / restarts timer."""
@@ -99,26 +107,33 @@ class PomodoroTimer:
         if self.on_tick:
             self.on_tick(self.remaining_seconds, self.total_seconds)
 
-    def advance_to_next_session(self):
-        """Transitions Work -> Short Break -> Work -> ... -> Long Break."""
-        if self.session_type == SessionType.WORK:
-            self.pomodoro_count += 1
-            interval = config.settings.get("long_break_interval", 4)
-            if self.pomodoro_count % interval == 0:
-                self.session_type = SessionType.LONG_BREAK
-            else:
-                self.session_type = SessionType.SHORT_BREAK
-        else:
-            self.session_type = SessionType.WORK
+    def advance_to_next_session( self ):
+        """Transitions Work -> Short Break -> Work -> ... -> Long Break taking enabled checkboxes into account."""
+        short_enabled = config.settings.get( "short_break_enabled", True );
+        long_enabled = config.settings.get( "long_break_enabled", True );
 
-        self.state = TimerState.IDLE
-        self.total_seconds = self._get_duration_for(self.session_type)
-        self.remaining_seconds = self.total_seconds
+        if self.session_type == SessionType.WORK:
+            self.pomodoro_count += 1;
+            interval = config.settings.get( "long_break_interval", 4 );
+            is_long_turn = ( self.pomodoro_count % interval == 0 );
+
+            if is_long_turn and long_enabled:
+                self.session_type = SessionType.LONG_BREAK;
+            elif ( not is_long_turn or not long_enabled ) and short_enabled:
+                self.session_type = SessionType.SHORT_BREAK;
+            else:
+                self.session_type = SessionType.WORK;
+        else:
+            self.session_type = SessionType.WORK;
+
+        self.state = TimerState.IDLE;
+        self.total_seconds = self._get_duration_for( self.session_type );
+        self.remaining_seconds = self.total_seconds;
 
         if self.on_state_changed:
-            self.on_state_changed(self.state)
+            self.on_state_changed( self.state );
         if self.on_tick:
-            self.on_tick(self.remaining_seconds, self.total_seconds)
+            self.on_tick( self.remaining_seconds, self.total_seconds );
 
     def set_session_type(self, new_type: SessionType):
         self.session_type = new_type

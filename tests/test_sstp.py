@@ -15,6 +15,8 @@ class TestTimer(unittest.TestCase):
         config.settings["work_minutes"] = 25
         config.settings["short_break_minutes"] = 5
         config.settings["long_break_minutes"] = 15
+        config.settings["short_break_enabled"] = True
+        config.settings["long_break_enabled"] = True
         self.timer = PomodoroTimer()
 
     def test_initial_state(self):
@@ -97,6 +99,77 @@ class TestLEDRenderer(unittest.TestCase):
         for digit in "0123456789":
             self.assertIn(digit, DIGIT_MAP)
             self.assertGreater(len(DIGIT_MAP[digit]), 0)
+
+
+class TestBreakTogglesAndOpacity( unittest.TestCase ):
+    def setUp( self ):
+        config.settings[ "work_minutes" ] = 25;
+        config.settings[ "short_break_minutes" ] = 5;
+        config.settings[ "long_break_minutes" ] = 15;
+        config.settings[ "long_break_interval" ] = 4;
+        config.settings[ "short_break_enabled" ] = True;
+        config.settings[ "long_break_enabled" ] = True;
+        self.timer = PomodoroTimer();
+
+    def tearDown( self ):
+        config.settings[ "short_break_enabled" ] = True;
+        config.settings[ "long_break_enabled" ] = True;
+        config.save();
+
+    def test_short_break_disabled( self ):
+        config.settings[ "short_break_enabled" ] = False;
+        config.settings[ "long_break_enabled" ] = True;
+        # Cycle 1: normally Short Break, but short break is disabled, so should advance to next Work session
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+
+        # Cycles 2 and 3: Work
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+
+        # Cycle 4: 4th cycle with interval=4 and long_break_enabled=True -> LONG_BREAK
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.LONG_BREAK );
+
+    def test_long_break_disabled( self ):
+        config.settings[ "short_break_enabled" ] = True;
+        config.settings[ "long_break_enabled" ] = False;
+        # Cycle 4: interval reached, but long break is disabled, short break enabled -> SHORT_BREAK fallback
+        self.timer.pomodoro_count = 3;
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.SHORT_BREAK );
+
+    def test_both_breaks_disabled( self ):
+        config.settings[ "short_break_enabled" ] = False;
+        config.settings[ "long_break_enabled" ] = False;
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+        self.timer.pomodoro_count = 3;
+        self.timer.advance_to_next_session();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+
+    def test_refresh_durations_with_disabled_break( self ):
+        self.timer.session_type = SessionType.SHORT_BREAK;
+        config.settings[ "short_break_enabled" ] = False;
+        self.timer.refresh_durations();
+        self.assertEqual( self.timer.session_type, SessionType.WORK );
+
+    def test_settings_dialog_properties( self ):
+        import gi;
+        gi.require_version( "Gtk", "3.0" );
+        from gi.repository import Gtk;
+        from sstp.settings_dialog import SettingsDialog;
+        parent = Gtk.Window();
+        dialog = SettingsDialog( parent );
+        self.assertAlmostEqual( Gtk.Widget.get_opacity( dialog ), 0.75, places=2 );
+        self.assertTrue( hasattr( dialog, "chk_short" ) );
+        self.assertTrue( hasattr( dialog, "chk_long" ) );
+        self.assertEqual( dialog.chk_short.get_active(), config.settings[ "short_break_enabled" ] );
+        self.assertEqual( dialog.chk_long.get_active(), config.settings[ "long_break_enabled" ] );
+        dialog.destroy();
+        parent.destroy();
 
 
 if __name__ == "__main__":

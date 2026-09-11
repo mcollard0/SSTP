@@ -24,6 +24,8 @@ class ConfigManager:
             "short_break_minutes": 5,
             "long_break_minutes": 15,
             "long_break_interval": 4,
+            "short_break_enabled": True,
+            "long_break_enabled": True,
             "sound_enabled": True,
             "sound_file": DEFAULT_SOUND_PATH,
             "volume": 0.8,

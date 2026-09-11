@@ -6,3 +6,4 @@ env/
 venv/
 *.swp
 *~
+backup/
